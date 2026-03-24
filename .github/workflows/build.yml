@@ -1,0 +1,57 @@
+name: Build Lua Module
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch: # 支持手动触发
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }} (Lua ${{ matrix.lua }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        lua: ["5.3", "5.4"]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      # 根据不同系统安装 Lua 依赖
+      - name: Install Lua (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y liblua${{ matrix.lua }}-dev
+
+      - name: Install Lua (macOS)
+        if: matrix.os == 'macos-latest'
+        run: brew install lua@${{ matrix.lua }}
+
+      - name: Build project
+        run: cargo build --release
+
+      # 整理编译产物（统一命名为 wordninja.so 或 wordninja.dll）
+      - name: Prepare Artifacts
+        shell: bash
+        run: |
+          mkdir -p dist
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            cp target/release/wordninja.dll dist/wordninja.dll
+          elif [ "${{ matrix.os }}" = "macos-latest" ]; then
+            # macOS 必须从 .dylib 改名为 .so 才能被 Lua 识别
+            cp target/release/libwordninja.dylib dist/wordninja.so
+          else
+            cp target/release/libwordninja.so dist/wordninja.so
+          fi
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wordninja-${{ matrix.os }}-lua${{ matrix.lua }}
+          path: dist/*
