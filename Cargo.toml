@@ -6,14 +6,12 @@ edition = "2018"
 license = "MIT"
 
 [features]
-# 这里的配置要和 mlua 的特性对应
-lua54 = ["mlua/lua54", "mlua/vendored"]
-lua53 = ["mlua/lua53", "mlua/vendored"]
+lua54 = ["mlua/lua54"]
+lua53 = ["mlua/lua53"]
 
 [dependencies]
 wordninja = "0.1"
-# 强制使用最新稳定版 mlua 并开启 module 特性
-mlua = { version = "0.9", features = ["module"] }
+mlua = { version = "0.10", features = ["module"] }
 
 [lib]
 crate-type = ["cdylib"]
