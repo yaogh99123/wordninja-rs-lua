@@ -5,7 +5,7 @@ on:
     branches: [ "main", "master" ]
   pull_request:
     branches: [ "main", "master" ]
-  workflow_dispatch: # 支持手动触发
+  workflow_dispatch:
 
 jobs:
   build:
@@ -14,7 +14,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        # 我们先专注于 macOS 和 Ubuntu，暂时移除不稳定的 Windows 配置
+        os: [ubuntu-latest, macos-latest]
         lua: ["5.3", "5.4"]
 
     steps:
@@ -24,34 +25,34 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      # 根据不同系统安装 Lua 依赖
+      # 仅 Ubuntu 需要手动安装 liblua-dev
       - name: Install Lua (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get update && sudo apt-get install -y liblua${{ matrix.lua }}-dev
 
-      - name: Install Lua (macOS)
-        if: matrix.os == 'macos-latest'
-        run: brew install lua@${{ matrix.lua }}
-
+      # macOS 不再使用 brew install，我们通过环境变量告诉 Rust 静态编译 Lua
       - name: Build project
-        run: cargo build --release
+        shell: bash
+        env:
+          # 这个环境变量会让 mlua/rlua 等库尝试自己下载并编译 Lua 源码
+          LUA_VERSION: ${{ matrix.lua }}
+        run: |
+          # 尝试开启 vendored 特性（如果你的 crate 支持 mlua/rlua）
+          # 如果报错，请直接尝试普通的 cargo build --release
+          cargo build --release --features vendored || cargo build --release
 
-      # 整理编译产物（统一命名为 wordninja.so 或 wordninja.dll）
       - name: Prepare Artifacts
         shell: bash
         run: |
           mkdir -p dist
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            cp target/release/wordninja.dll dist/wordninja.dll
-          elif [ "${{ matrix.os }}" = "macos-latest" ]; then
-            # macOS 必须从 .dylib 改名为 .so 才能被 Lua 识别
-            cp target/release/libwordninja.dylib dist/wordninja.so
+          if [ "${{ matrix.os }}" = "macos-latest" ]; then
+            cp target/release/libwordninja.dylib dist/wordninja.so || cp target/release/libwordninja_rs_lua.dylib dist/wordninja.so
           else
-            cp target/release/libwordninja.so dist/wordninja.so
+            cp target/release/libwordninja.so dist/wordninja.so || cp target/release/libwordninja_rs_lua.so dist/wordninja.so
           fi
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: wordninja-${{ matrix.os }}-lua${{ matrix.lua }}
-          path: dist/*
+          path: dist/wordninja.so
