@@ -13,14 +13,16 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Build
-        # 直接在命令行开启 vendored，不依赖 Cargo.toml 里的 features 映射
-        run: cargo build --release --features "mlua/lua54 mlua/vendored"
+        env:
+          # macOS 专用黑魔法：允许动态查找符号，解决编译时找不到 Lua 库的问题
+          RUSTFLAGS: "-C link-arg=-undefined -C link-arg=dynamic_lookup"
+        run: cargo build --release --features lua54
 
       - name: Export SO
         run: |
           mkdir -p output
-          # 找编译出来的库，不管它叫什么名字
-          find target/release -maxdepth 1 -name "lib*.dylib" -exec cp {} output/wordninja.so \;
+          # 抓取生成的库并更名
+          cp target/release/libwordninja_rs_lua.dylib output/wordninja.so
 
       - name: Upload
         uses: actions/upload-artifact@v4
