@@ -12,14 +12,16 @@ categories = ["algorithms", "lua", "text-processing"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-lua54 = ["mlua/lua54"]
-lua53 = ["mlua/lua53"]
-lua52 = ["mlua/lua52"]
-lua51 = ["mlua/lua51"]
-luajit = ["mlua/luajit"]
+# 为每个 Lua 版本都增加 vendored 支持，确保静态编译
+lua54 = ["mlua/lua54", "mlua/vendored"]
+lua53 = ["mlua/lua53", "mlua/vendored"]
+lua52 = ["mlua/lua52", "mlua/vendored"]
+lua51 = ["mlua/lua51", "mlua/vendored"]
+luajit = ["mlua/luajit", "mlua/vendored"]
 
 [dependencies]
 wordninja = "0.1"
+# 保持 version 0.10，并确保开启了 module 模式
 mlua = { version = "0.10", features = ["module"] }
 
 [lib]
