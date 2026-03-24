@@ -112,10 +112,51 @@ jobs:
           name: wordninja-windows-64-${{ matrix.lua }}
           path: wordninja_windows_64_${{ matrix.lua }}.dll
 
+  build-latest-macos-arm64:
+    runs-on: macos-14
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        rust: [stable]
+        lua: [lua53, lua54]
+        include:
+          - lua: lua54
+            lua-pkg: lua
+          - lua: lua53
+            lua-pkg: lua@5.3
+    steps:
+      - uses: actions/checkout@master
+      - uses: hecrj/setup-rust-action@v2
+        with:
+          rust-version: ${{ matrix.rust }}
+
+      - name: Install Lua
+        run: brew install ${{ matrix.lua-pkg }}
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build ${{ matrix.lua }} target
+        run: |
+          export PKG_CONFIG_PATH="/opt/homebrew/lib/pkgconfig:/opt/homebrew/opt/lua/lib/pkgconfig:/opt/homebrew/opt/lua@5.3/lib/pkgconfig"
+          cargo build --release --features "${{ matrix.lua }}"
+
+      - name: Rename target
+        run: mv target/release/libwordninja_rs_lua.dylib wordninja_macos_arm64_${{ matrix.lua }}.so
+
+      - name: Upload target
+        uses: actions/upload-artifact@v4
+        with:
+          name: wordninja-macos-arm64-${{ matrix.lua }}
+          path: wordninja_macos_arm64_${{ matrix.lua }}.so
+
   release-latest:
-    needs: [build-latest, build-latest-win32, build-latest-win64]
+    needs: [build-latest, build-latest-win32, build-latest-win64, build-latest-macos-arm64]
     name: release-latest
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Download the artifacts to release
         uses: actions/download-artifact@v4
@@ -129,6 +170,8 @@ jobs:
             wordninja-windows-32-lua53
             wordninja-windows-64-lua53
             wordninja-linux-lua53
+            wordninja-macos-arm64-lua53
             wordninja-windows-32-lua54
             wordninja-windows-64-lua54
             wordninja-linux-lua54
+            wordninja-macos-arm64-lua54
