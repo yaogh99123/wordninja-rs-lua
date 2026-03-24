@@ -2,10 +2,17 @@ name: Build for macOS M4
 
 on:
   workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release Tag (e.g. v1.0.0)'
+        required: true
+        default: 'latest'
 
 jobs:
   build:
     runs-on: macos-latest
+    permissions:
+      contents: write # 必须赋予写入权限，否则无法创建 Release
     steps:
       - uses: actions/checkout@v4
 
@@ -14,18 +21,21 @@ jobs:
 
       - name: Build
         env:
-          # macOS 专用黑魔法：允许动态查找符号，解决编译时找不到 Lua 库的问题
           RUSTFLAGS: "-C link-arg=-undefined -C link-arg=dynamic_lookup"
         run: cargo build --release --features lua54
 
-      - name: Export SO
+      - name: Prepare Artifact
         run: |
           mkdir -p output
-          # 抓取生成的库并更名
           cp target/release/libwordninja_rs_lua.dylib output/wordninja.so
 
-      - name: Upload
-        uses: actions/upload-artifact@v4
+      # 关键步骤：同步到 Releases
+      - name: Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: wordninja-macos-m4
-          path: output/wordninja.so
+          tag_name: ${{ github.event.inputs.tag_name }}
+          files: output/wordninja.so
+          name: Release ${{ github.event.inputs.tag_name }}
+          body: "Automated build for macOS M4 (arm64)"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
